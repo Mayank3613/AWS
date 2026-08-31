@@ -17,18 +17,8 @@ initCronJobs();
 const app = express();
 
 // Configure CORS for AWS EC2 / RDS / Multiple Origins
-const allowedOrigins = process.env.CORS_ORIGIN 
-  ? process.env.CORS_ORIGIN.split(',').map(item => item.trim())
-  : ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://m-m-solutions.netlify.app'];
-
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(null, true); // Cloud permissive
-  },
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -53,7 +43,7 @@ app.get('/api/health', async (req, res) => {
     databaseEngine: 'Amazon AWS RDS (PostgreSQL/MySQL)',
     databaseHost: process.env.DB_HOST || 'localhost',
     databaseStatus: dbStatus,
-    environment: process.env.NODE_ENV || 'development',
+    environment: process.env.NODE_ENV || 'production',
     uptimeSeconds: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     memoryUsageMB: Math.round(process.memoryUsage().rss / 1024 / 1024)
@@ -72,35 +62,20 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/interactions', require('./routes/interactionRoutes'));
 app.use('/api/audit', require('./routes/auditRoutes'));
 
-// Serve Frontend Static Build in Production
-if (process.env.SERVE_STATIC === 'true' || process.env.NODE_ENV === 'production') {
-  const clientBuildPath = path.join(__dirname, 'client', 'build');
-  app.use(express.static(clientBuildPath));
+// Serve Frontend Static Build (React Single Page Application)
+const clientBuildPath = path.join(__dirname, 'client', 'build');
+app.use(express.static(clientBuildPath));
 
-  app.get('*', (req, res, next) => {
-    if (req.url.startsWith('/api')) {
-      return next();
-    }
-    res.sendFile(path.join(clientBuildPath, 'index.html'));
-  });
-} else {
-  app.get('/', (req, res) => {
-    res.json({
-      message: '🚀 Customer Report System API is running on AWS EC2 & Amazon RDS',
-      database: 'Amazon AWS RDS (PostgreSQL/MySQL)',
-      healthCheck: '/api/health'
-    });
-  });
-}
-
-// 404 Handler for API routes
-app.use('/api/*', (req, res) => {
-  res.status(404).json({ success: false, message: 'API endpoint not found' });
+app.get('*', (req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    return res.status(404).json({ success: false, message: 'API endpoint not found' });
+  }
+  res.sendFile(path.join(clientBuildPath, 'index.html'));
 });
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled Error:', err.stack);
+  console.error('Unhandled Server Error:', err.stack);
   res.status(500).json({
     success: false,
     message: 'Internal Server Error',

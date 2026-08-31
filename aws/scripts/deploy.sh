@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Customer Report System - One-Command Deployment Script for AWS EC2 & RDS
+# Customer Report System - Bulletproof Deployment Script for AWS EC2 & RDS
 # ==============================================================================
 
 set -e
@@ -17,18 +17,11 @@ echo "=========================================================="
 
 cd "$APP_DIR"
 
-# 1. Check & Setup .env file
-if [ ! -f "$APP_DIR/.env" ]; then
-    echo "📝 Creating .env from .env.production template..."
-    cp "$APP_DIR/.env.production" "$APP_DIR/.env"
-    echo "⚠️ Please ensure you have configured your Amazon RDS endpoint in $APP_DIR/.env"
-fi
-
-# 2. Install Backend Dependencies
+# 1. Install Backend Dependencies
 echo "📦 Installing Backend Dependencies..."
 npm install --production=false
 
-# 3. Install Frontend Dependencies & Build React App
+# 2. Install Frontend Dependencies & Build React App
 echo "⚛️ Building Frontend (React Production Bundle)..."
 cd "$APP_DIR/client"
 export NODE_OPTIONS="--max-old-space-size=1536"
@@ -36,39 +29,39 @@ npm install --legacy-peer-deps
 npm run build
 cd "$APP_DIR"
 
-# Ensure Nginx www-data user has permission to read files in /home/ubuntu
-echo "🔒 Setting Web Directory Permissions..."
-sudo chmod 755 /home/ubuntu || true
-sudo chmod -R 755 "$APP_DIR/client/build" || true
-
-# 4. Synchronize & Seed Database on Amazon RDS
+# 3. Synchronize & Seed Database on Amazon RDS
 echo "🍃 Initializing Database Schema on Amazon RDS..."
 node seed.js || {
     echo "⚠️ Seed notice logged."
 }
 
-# 5. Configure Nginx Reverse Proxy
-echo "🌐 Configuring Nginx Site..."
+# 4. Configure Nginx Reverse Proxy
+echo "🌐 Configuring Nginx Reverse Proxy..."
+sudo rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf
 sudo cp "$APP_DIR/aws/nginx/customer-report.conf" /etc/nginx/sites-available/customer-report
-sudo ln -sf /etc/nginx/sites-available/customer-report /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
+sudo ln -sf /etc/nginx/sites-available/customer-report /etc/nginx/sites-enabled/customer-report
+sudo cp "$APP_DIR/aws/nginx/customer-report.conf" /etc/nginx/conf.d/customer-report.conf
 
-# Test & Reload Nginx
+# Test & Restart Nginx
 sudo nginx -t
-sudo systemctl reload nginx
-echo "✅ Nginx reloaded successfully."
+sudo systemctl restart nginx
+echo "✅ Nginx restarted successfully."
 
-# 6. Cleanly Start / Restart Backend using PM2
+# 5. Cleanly Start / Restart Backend using PM2
 echo "⚡ Starting/Restarting PM2 Process Manager..."
 mkdir -p "$APP_DIR/logs"
 pm2 delete all || true
 pm2 start "$APP_DIR/aws/pm2/ecosystem.config.js" --env production --update-env
 pm2 save
+sleep 2
 
-echo "=========================================================="
+# 6. Verify Deployment Locally
+echo -e "\n🩺 Testing Local API Health Check..."
+curl -s http://127.0.0.1:5000/api/health || echo "⚠️ Backend check pending."
+
+echo -e "\n=========================================================="
 echo "🎉 DEPLOYMENT COMPLETE!"
-echo "📡 Check application status with: pm2 status"
-echo "📋 View logs with: pm2 logs customer-report-api"
+echo "📡 PM2 Process Status:"
+pm2 status
 echo "🌍 Open your browser and navigate to: http://<YOUR_EC2_PUBLIC_IP>"
-echo "🩺 Health Check: http://<YOUR_EC2_PUBLIC_IP>/api/health"
 echo "=========================================================="
