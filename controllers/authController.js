@@ -1,7 +1,7 @@
-const { Op } = require('sequelize');
+const { Op, fn, col, where } = require('sequelize');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { User, sequelize } = require('../models');
 const { logAudit } = require('./auditController');
 
 const generateToken = (id) => {
@@ -18,15 +18,18 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Please add all required fields' });
     }
 
-    const userExists = await User.findOne({ where: { email } });
+    const cleanEmail = email.trim().toLowerCase();
+    const userExists = await User.findOne({
+      where: where(fn('LOWER', col('email')), cleanEmail)
+    });
 
     if (userExists) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
 
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: cleanEmail,
       password,
       role: role || 'staff',
       phone: phone || ''
@@ -58,11 +61,16 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
 
-    const user = await User.findOne({ where: { email } });
+    const cleanEmail = email.trim().toLowerCase();
 
-    if (user && (await user.matchPassword(password))) {
-      await logAudit(user.id, 'User Login', `${user.role.toUpperCase()} successfully authenticated on AWS RDS.`, user.name, user.role);
-      res.json({
+    // Query user case-insensitively
+    const user = await User.findOne({
+      where: where(fn('LOWER', col('email')), cleanEmail)
+    });
+
+    if (user && (await user.matchPassword(password.trim()))) {
+      await logAudit(user.id, 'User Login', `${user.role.toUpperCase()} successfully authenticated on Amazon RDS.`, user.name, user.role);
+      return res.json({
         id: user.id,
         _id: user.id,
         name: user.name,
@@ -71,9 +79,10 @@ const loginUser = async (req, res) => {
         token: generateToken(user.id)
       });
     } else {
-      res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
+    console.error('Login Error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -94,7 +103,10 @@ const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
   try {
-    const user = await User.findOne({ where: { email } });
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const user = await User.findOne({
+      where: where(fn('LOWER', col('email')), cleanEmail)
+    });
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -177,7 +189,7 @@ const updateProfile = async (req, res) => {
     }
 
     user.name = req.body.name || user.name;
-    user.email = req.body.email || user.email;
+    user.email = (req.body.email || user.email).trim().toLowerCase();
     if (req.body.phone !== undefined) user.phone = req.body.phone;
     if (req.body.notifications !== undefined) user.notifications = req.body.notifications;
 

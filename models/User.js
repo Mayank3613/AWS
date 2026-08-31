@@ -49,6 +49,11 @@ const User = sequelize.define('User', {
   timestamps: true,
   tableName: 'users',
   hooks: {
+    beforeValidate: (user) => {
+      if (user.email) {
+        user.email = user.email.toLowerCase().trim();
+      }
+    },
     beforeCreate: async (user) => {
       if (user.password) {
         const salt = await bcrypt.genSalt(10);
@@ -66,7 +71,9 @@ const User = sequelize.define('User', {
 
 // Instance Method: Compare Password
 User.prototype.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  const currentHash = this.getDataValue('password') || this.password;
+  if (!currentHash) return false;
+  return await bcrypt.compare(enteredPassword, currentHash);
 };
 
 // Instance Method: Generate Reset Password Token
