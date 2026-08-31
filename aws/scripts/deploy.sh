@@ -36,10 +36,15 @@ npm install --legacy-peer-deps
 npm run build
 cd "$APP_DIR"
 
+# Ensure Nginx www-data user has permission to read files in /home/ubuntu
+echo "🔒 Setting Web Directory Permissions..."
+sudo chmod 755 /home/ubuntu || true
+sudo chmod -R 755 "$APP_DIR/client/build" || true
+
 # 4. Synchronize & Seed Database on Amazon RDS
 echo "🍃 Initializing Database Schema on Amazon RDS..."
 node seed.js || {
-    echo "⚠️ Seed skipped or encountered non-fatal notice (check RDS credentials in .env if DB is not configured yet)."
+    echo "⚠️ Seed notice logged."
 }
 
 # 5. Configure Nginx Reverse Proxy
@@ -48,15 +53,16 @@ sudo cp "$APP_DIR/aws/nginx/customer-report.conf" /etc/nginx/sites-available/cus
 sudo ln -sf /etc/nginx/sites-available/customer-report /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 
-# Test Nginx Config
+# Test & Reload Nginx
 sudo nginx -t
 sudo systemctl reload nginx
 echo "✅ Nginx reloaded successfully."
 
-# 6. Start / Reload Backend using PM2
-echo "⚡ Starting/Reloading PM2 Process Manager..."
+# 6. Cleanly Start / Restart Backend using PM2
+echo "⚡ Starting/Restarting PM2 Process Manager..."
 mkdir -p "$APP_DIR/logs"
-pm2 startOrReload "$APP_DIR/aws/pm2/ecosystem.config.js" --env production
+pm2 delete all || true
+pm2 start "$APP_DIR/aws/pm2/ecosystem.config.js" --env production --update-env
 pm2 save
 
 echo "=========================================================="
