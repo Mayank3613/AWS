@@ -35,12 +35,11 @@ node seed.js || {
     echo "⚠️ Seed notice logged."
 }
 
-# 4. Configure Nginx Reverse Proxy
+# 4. Configure Nginx Reverse Proxy (Clean single file to avoid duplicate server blocks)
 echo "🌐 Configuring Nginx Reverse Proxy..."
-sudo rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf
+sudo rm -f /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf
 sudo cp "$APP_DIR/aws/nginx/customer-report.conf" /etc/nginx/sites-available/customer-report
 sudo ln -sf /etc/nginx/sites-available/customer-report /etc/nginx/sites-enabled/customer-report
-sudo cp "$APP_DIR/aws/nginx/customer-report.conf" /etc/nginx/conf.d/customer-report.conf
 
 # Test & Restart Nginx
 sudo nginx -t
