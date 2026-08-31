@@ -1,25 +1,18 @@
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const User = require('./models/User');
-const Customer = require('./models/Customer');
-const Report = require('./models/Report');
-const AuditLog = require('./models/AuditLog');
+const { sequelize, User, Customer, Report, InteractionLog, Insight, AuditLog } = require('./models');
 
 dotenv.config();
 
-const mongoURI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/customer_report_system';
-
 const seedData = async () => {
   try {
-    await mongoose.connect(mongoURI);
-    console.log(` Connected to MongoDB: ${mongoURI}`);
+    console.log(' Connecting to Amazon AWS RDS Database...');
+    await sequelize.authenticate();
+    console.log('✅ Connected to Amazon RDS!');
 
-    // Clear existing data
-    await User.deleteMany({});
-    await Customer.deleteMany({});
-    await Report.deleteMany({});
-    await AuditLog.deleteMany({});
-    console.log(' Cleared existing database collections.');
+    // Recreate all tables with fresh relational schema
+    console.log('🔄 Re-syncing database schema (force: true)...');
+    await sequelize.sync({ force: true });
+    console.log('✅ Clean relational schema created on RDS.');
 
     // 1. Create Default Users (Admin, Manager, Staff)
     const admin = await User.create({
@@ -64,7 +57,7 @@ const seedData = async () => {
       segment: 'VIP',
       clv: 25000,
       pendingPayments: 0,
-      assignedTo: staff._id
+      assignedTo: staff.id
     });
 
     const customer2 = await Customer.create({
@@ -79,7 +72,7 @@ const seedData = async () => {
       segment: 'Standard',
       clv: 14000,
       pendingPayments: 750,
-      assignedTo: staff._id
+      assignedTo: staff.id
     });
 
     const customer3 = await Customer.create({
@@ -94,65 +87,91 @@ const seedData = async () => {
       segment: 'Regular',
       clv: 5000,
       pendingPayments: 1200,
-      assignedTo: manager._id
+      assignedTo: manager.id
     });
 
-    console.log(' Created 3 Sample Customers.');
+    console.log(' Created 3 Sample Customers on RDS.');
 
     // 3. Create Sample Reports
     await Report.create({
-      customerId: customer3._id,
+      customerId: customer3.id,
       customerName: customer3.name,
       title: 'Payment Gateway Integration Failure',
       description: 'API response timeout encountered during nightly recurring billing cycle.',
       status: 'Open',
       priority: 'Critical',
-      assignedTo: staff._id,
+      assignedTo: staff.id,
       staffName: staff.name
     });
 
     await Report.create({
-      customerId: customer2._id,
+      customerId: customer2.id,
       customerName: customer2.name,
       title: 'Slow Dashboard Loading in EU Region',
       description: 'Client noticed increased latency when fetching monthly report exports.',
       status: 'In Progress',
       priority: 'Medium',
-      assignedTo: manager._id,
+      assignedTo: manager.id,
       staffName: manager.name
     });
 
     await Report.create({
-      customerId: customer1._id,
+      customerId: customer1.id,
       customerName: customer1.name,
       title: 'Custom Field Addition Request',
       description: 'Customer requested additional telemetry metrics in reporting export.',
       status: 'Resolved',
       priority: 'Low',
-      assignedTo: staff._id,
+      assignedTo: staff.id,
       staffName: staff.name
     });
 
     console.log(' Created 3 Sample Complaint / Insight Reports.');
 
-    // 4. Create Initial Audit Log
+    // 4. Create Sample Interaction Logs
+    await InteractionLog.create({
+      customerId: customer1.id,
+      userId: staff.id,
+      type: 'Call',
+      notes: 'Quarterly review call. Client expressed high satisfaction with system uptime.',
+      rating: 5
+    });
+
+    await InteractionLog.create({
+      customerId: customer3.id,
+      userId: manager.id,
+      type: 'Email',
+      notes: 'Sent formal notification regarding pending billing reconciliation.',
+      rating: 2
+    });
+
+    // 5. Create Initial Insights
+    await Insight.create({
+      customerId: customer3.id,
+      riskScore: 'High',
+      riskFactors: ['Critical Health Score: 42', '1 Unresolved Critical Report(s)'],
+      recommendation: 'URGENT: Immediate executive intervention required to prevent churn.'
+    });
+
+    // 6. Create Initial Audit Log
     await AuditLog.create({
-      action: 'SYSTEM_SEED',
-      details: 'Initial database seeding on AWS EC2 environment.',
+      userId: admin.id,
+      action: 'SYSTEM_SEED_RDS',
+      details: 'Initial database schema and seed data loaded on Amazon AWS RDS.',
       performedBy: admin.name,
       role: admin.role
     });
 
-    console.log('\n Database Seeding Complete!');
+    console.log('\n🎉 Amazon AWS RDS Database Seeding Complete!');
     console.log('=============================================');
-    console.log('You can now log in to the application using:');
+    console.log('Login credentials:');
     console.log('Email:    admin@example.com');
     console.log('Password: password123');
     console.log('=============================================\n');
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Seeding Error:', error);
+    console.error('❌ Seeding Error on Amazon RDS:', error);
     process.exit(1);
   }
 };

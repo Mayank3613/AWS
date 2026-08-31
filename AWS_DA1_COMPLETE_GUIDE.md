@@ -1,71 +1,71 @@
 # AWS DA1 Assignment: Customer Report & Insight System
-## Complete Step-by-Step Implementation & Deployment Guide
+## Complete Implementation & Deployment Guide with Amazon AWS RDS
 
-This document contains the complete technical documentation and step-by-step guide for completing **DA1 (Digital Assignment 1)** on **Amazon Web Services (AWS)** using the **Customer Report & Insight System** full-stack application.
+This document contains the complete step-by-step documentation for completing **DA1 (Digital Assignment 1)** on **Amazon Web Services (AWS)** using **Amazon EC2** for application hosting and **Amazon RDS (Relational Database Service - PostgreSQL / MySQL)** for managed cloud database storage.
 
 ---
 
 ## 📑 Table of Contents
-1. [Architecture Overview (100% AWS Free Tier)](#1-architecture-overview-100-aws-free-tier)
+1. [Architecture Overview (Amazon EC2 + Amazon RDS)](#1-architecture-overview-amazon-ec2--amazon-rds)
 2. [Task 1: EC2 Instance Creation & SSH Access](#task-1-ec2-instance-creation--ssh-access)
-3. [Task 2: Deploying & Hosting Application on EC2](#task-2-deploying--hosting-application-on-ec2)
-4. [Task 3: Policy & Access Rights Configuration for End Users / Consumers](#task-3-policy--access-rights-configuration-for-end-users--consumers)
-5. [Task 4: Security Hardening & Increasing EBS Storage Size](#task-4-security-hardening--increasing-ebs-storage-size)
-6. [Automated Scripts Reference](#automated-scripts-reference)
-7. [DA1 Viva / Oral Exam Q&A](#da1-viva--oral-exam-qa)
+3. [Task 2: Amazon AWS RDS Database Provisioning](#task-2-amazon-aws-rds-database-provisioning)
+4. [Task 3: Deploying Full-Stack Application on EC2 with RDS](#task-3-deploying-full-stack-application-on-ec2-with-rds)
+5. [Task 4: Policy & Access Rights for End Users / Consumers (AWS IAM)](#task-4-policy--access-rights-for-end-users--consumers-aws-iam)
+6. [Task 5: Security Hardening & Storage Size Expansion (EBS & RDS)](#task-5-security-hardening--storage-size-expansion-ebs--rds)
+7. [Automated Scripts Reference](#automated-scripts-reference)
+8. [DA1 Viva / Oral Exam Q&A](#da1-viva--oral-exam-qa)
 
 ---
 
-## 1. Architecture Overview (100% AWS Free Tier)
-
-All components (Frontend, Backend API, Database, Security, and Storage) are hosted **entirely inside AWS**:
+## 1. Architecture Overview (Amazon EC2 + Amazon RDS)
 
 ```
-+-----------------------------------------------------------------------------------+
-|                                  AWS CLOUD                                        |
-|                                                                                   |
-|   +---------------------------------------------------------------------------+   |
-|   |                            AWS VPC / EC2 INSTANCE                         |   |
-|   |                       (Ubuntu 24.04 LTS - t2.micro)                       |   |
-|   |                                                                           |   |
-|   |   +-------------------------------------------------------------------+   |   |
-|   |   |                   NGINX WEB SERVER & REVERSE PROXY                |   |   |
-|   |   |                         (Port 80 / Port 443)                      |   |   |
-|   |   +---------------------------------+---------------------------------+   |   |
-|   |                                     |                                     |   |
-|   |                   +-----------------+-----------------+                   |   |
-|   |                   |                                   |                   |   |
-|   |                   v                                   v                   |   |
-|   |   +-------------------------------+   +-------------------------------+   |   |
-|   |   |       REACT FRONTEND          |   |       EXPRESS BACKEND         |   |   |
-|   |   |    Static Build (/var/www)    |   |     PM2 Managed (Port 5000)   |   |   |
-|   |   +-------------------------------+   +---------------+---------------+   |   |
-|   |                                                       |                   |   |
-|   |                                                       v                   |   |
-|   |                                       +-------------------------------+   |   |
-|   |                                       |      MONGODB DATABASE         |   |   |
-|   |                                       |   Local Service (Port 27017)  |   |   |
-|   |                                       +---------------+---------------+   |   |
-|   |                                                       |                   |   |
-|   +-------------------------------------------------------|-------------------+   |
-|                                                           |                       |
-|                               v                           v                       |
-|               +-------------------------------+   +-------------------------------+
-|               |       AWS EBS STORAGE         |   |         AWS S3 BUCKET         |
-|               |    Root Volume (20GB - gp3)   |   |     (Automated DB Backups)    |
-|               +-------------------------------+   +-------------------------------+
-+-----------------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------------------+
+|                                          AWS CLOUD                                            |
+|                                                                                               |
+|   +---------------------------------------------------------------------------------------+   |
+|   |                               AWS VPC (Default / Custom)                              |   |
+|   |                                                                                       |   |
+|   |   +---------------------------------------+   +-----------------------------------+   |   |
+|   |   |        AMAZON EC2 INSTANCE            |   |          AMAZON AWS RDS           |   |   |
+|   |   |    (Ubuntu 24.04 LTS - t2.micro)      |   |   (PostgreSQL 16 - db.t3.micro)   |   |   |
+|   |   |                                       |   |                                   |   |   |
+|   |   |   +-------------------------------+   |   |   +---------------------------+   |   |   |
+|   |   |   |       NGINX REVERSE PROXY     |   |   |   |  Managed Relational DB    |   |   |   |
+|   |   |   |       (Port 80 / Port 443)    |   |   |   |   (Port 5432 / SSL)       |   |   |   |
+|   |   |   +---------------+---------------+   |   |   +-------------+-------------+   |   |   |
+|   |   |                   |                   |   |                 ^                 |   |   |
+|   |   |         +---------+---------+         |   |                 |                 |   |   |
+|   |   |         |                   |         |   |                 |                 |   |   |
+|   |   |         v                   v         |   |                 |                 |   |   |
+|   |   |   +-----------+   +---------------+   |   |                 |                 |   |   |
+|   |   |   |   REACT   |   |  NODE/EXPRESS |   |   |                 |                 |   |   |
+|   |   |   | FRONTEND  |   |   API (PM2)   |---+---|----(SSL Query)--+                 |   |   |
+|   |   |   +-----------+   +---------------+   |   |                                   |   |   |
+|   |   +---------------------------------------+   |   +---------------------------+   |   |   |
+|   |                                               |   |    20 GB RDS Storage      |   |   |   |
+|   |                                               |   |  & Automated Snapshots    |   |   |   |
+|   |                                               |   +---------------------------+   |   |   |
+|   |                                               +-----------------------------------+   |   |
+|   +---------------------------------------------------------------------------------------+   |
+|                                                                                               |
+|             +-------------------------------+   +-------------------------------+             |
+|             |        AWS EBS STORAGE        |   |         AWS S3 BUCKET         |             |
+|             |    Root Volume (20GB - gp3)   |   |     (Automated DB Backups)    |             |
+|             +-------------------------------+   +-------------------------------+             |
++-----------------------------------------------------------------------------------------------+
 ```
 
-### Free Tier Resource Breakdown
+### AWS Free Tier Allowance Breakdown
 | AWS Service | Free Tier Allowance | Our Project Usage | Cost |
 | :--- | :--- | :--- | :--- |
 | **Amazon EC2** | 750 hours/month of `t2.micro` or `t3.micro` | 1 instance (`t2.micro`) | **$0.00** |
+| **Amazon RDS** | 750 hours/month of `db.t3.micro` / `db.t4g.micro` | 1 database instance (PostgreSQL) | **$0.00** |
+| **RDS Storage** | 20 GB/month of General Purpose (SSD) storage | 20 GB gp3 storage | **$0.00** |
 | **Amazon EBS** | 30 GB/month of General Purpose SSD (gp2/gp3) | 20 GB gp3 Root Volume | **$0.00** |
-| **Amazon S3** | 5 GB standard storage, 20,000 GET, 2,000 PUT | Database backups (~50 MB) | **$0.00** |
-| **AWS IAM** | Always Free | Custom Roles, Groups, Policies | **$0.00** |
-| **Security Groups** | Always Free | Inbound rules (22, 80, 443) | **$0.00** |
-| **MongoDB** | Self-hosted Community Server on EC2 | Local database on EC2 | **$0.00** |
+| **Amazon S3** | 5 GB standard storage, 2,000 PUT requests | RDS backup dumps (~30 MB) | **$0.00** |
+| **AWS IAM** | Always Free | Least-Privilege Policies & Roles | **$0.00** |
+| **Security Groups** | Always Free | Dedicated EC2 & RDS Security Groups | **$0.00** |
 
 ---
 
@@ -73,179 +73,168 @@ All components (Frontend, Backend API, Database, Security, and Storage) are host
 
 ### Step 1.1: Launching the EC2 Instance in AWS Console
 1. Log in to the [AWS Management Console](https://console.aws.amazon.com/).
-2. In the top search bar, type **EC2** and click on the **EC2 Dashboard**.
-3. Ensure your region is set to **N. Virginia (`us-east-1`)** or **Mumbai (`ap-south-1`)** (or your preferred region).
-4. Click the orange **Launch Instance** button.
-5. Configure the instance with the following settings:
-   - **Name and tags**: `Customer-Report-System-Server`
-   - **Application and OS Images (Amazon Machine Image)**:
-     - Select **Ubuntu**
-     - Choose **Ubuntu Server 24.04 LTS (HVM), SSD Volume Type** (marked *Free tier eligible*).
-   - **Instance type**:
-     - Choose **`t2.micro`** (1 vCPU, 1 GiB Memory - Free tier eligible) or **`t3.micro`**.
-   - **Key pair (login)**:
+2. In the top search bar, type **EC2** and navigate to the **EC2 Dashboard**.
+3. Choose your preferred region: **N. Virginia (`us-east-1`)** or **Mumbai (`ap-south-1`)**.
+4. Click **Launch Instance** and configure:
+   - **Name**: `Customer-Report-System-Server`
+   - **AMI**: Select **Ubuntu Server 24.04 LTS (HVM), SSD Volume Type** (Free tier eligible).
+   - **Instance type**: `t2.micro` (or `t3.micro` - 1 vCPU, 1 GiB RAM).
+   - **Key pair**:
      - Click **Create new key pair**.
-     - **Key pair name**: `customer-report-key`
-     - **Key pair type**: `RSA`
-     - **Private key file format**: `.pem` (for OpenSSH / Mac / Linux / Windows 10+).
-     - Click **Create key pair** (the file `customer-report-key.pem` will download automatically to your computer).
+     - Name: `customer-report-key` | Type: `RSA` | Format: `.pem`.
+     - Click **Create key pair** and save the downloaded file `customer-report-key.pem`.
    - **Network settings**:
-     - Click **Edit**.
-     - **Auto-assign Public IP**: `Enable`.
-     - Select **Create security group**.
-     - **Security group name**: `customer-report-sg`
-     - **Description**: `Security group for Customer Report System (SSH, HTTP, HTTPS)`
-     - Add the following Inbound Security Rules:
-       1. **Type**: `SSH` | **Port**: `22` | **Source**: `My IP` (Recommended for security) or `Anywhere-IPv4 (0.0.0.0/0)`
-       2. **Type**: `HTTP` | **Port**: `80` | **Source**: `Anywhere-IPv4 (0.0.0.0/0)`
-       3. **Type**: `HTTPS` | **Port**: `443` | **Source**: `Anywhere-IPv4 (0.0.0.0/0)`
-   - **Configure storage**:
-     - Keep standard initial size: `8 GiB` or `10 GiB` gp3 (we will expand this to 20 GiB in Task 4).
-6. Click **Launch Instance**.
-7. Wait 1-2 minutes until **Instance state** shows `Running` and **Status check** shows `2/2 checks passed`.
-8. Copy the **Public IPv4 address** (e.g. `54.210.120.45`).
+     - Auto-assign Public IP: `Enable`.
+     - Create Security Group: `customer-report-ec2-sg`.
+     - Inbound Rules:
+       1. **SSH (Port 22)**: Source: `My IP` (or `0.0.0.0/0`).
+       2. **HTTP (Port 80)**: Source: `0.0.0.0/0`.
+       3. **HTTPS (Port 443)**: Source: `0.0.0.0/0`.
+   - **Storage**: `8 GiB` or `10 GiB` gp3.
+5. Click **Launch Instance**.
+6. Note the assigned **Public IPv4 address** (e.g., `54.210.120.45`).
 
 ---
 
-### Step 1.2: Connecting to EC2 Instance via SSH
+### Step 1.2: Connecting via SSH
 
-#### Option A: macOS / Linux Terminal
-1. Open your Terminal and navigate to the directory where `customer-report-key.pem` was downloaded:
-   ```bash
-   cd ~/Downloads
-   ```
-2. Set the private key permissions (read-only by owner, required by SSH):
-   ```bash
-   chmod 400 customer-report-key.pem
-   ```
-3. Connect to your EC2 instance:
-   ```bash
-   ssh -i customer-report-key.pem ubuntu@<YOUR_EC2_PUBLIC_IP>
-   ```
-   *(Replace `<YOUR_EC2_PUBLIC_IP>` with your instance's actual IP address, e.g., `54.210.120.45`)*
-4. When prompted: `Are you sure you want to continue connecting (yes/no/[fingerprint])?`, type `yes` and hit Enter.
-5. You are now logged into the remote Ubuntu EC2 terminal!
-
-#### Option B: Windows (PowerShell / Windows Terminal)
-1. Open PowerShell and navigate to your key folder:
-   ```powershell
-   cd $HOME\Downloads
-   ```
-2. Fix private key permissions in Windows:
-   ```powershell
-   icacls.exe customer-report-key.pem /inheritance:r /grant:r "$($env:username):(R)"
-   ```
-3. Connect using the OpenSSH client:
-   ```powershell
-   ssh -i customer-report-key.pem ubuntu@<YOUR_EC2_PUBLIC_IP>
-   ```
-
-#### Option C: AWS EC2 Instance Connect (Browser 1-Click)
-1. In the AWS Console, go to **EC2 > Instances**.
-2. Select your instance `Customer-Report-System-Server`.
-3. Click the **Connect** button at the top.
-4. Select the **EC2 Instance Connect** tab.
-5. Username: `ubuntu`
-6. Click **Connect** (a terminal window will open in your browser).
-
----
-
-## Task 2: Deploying & Hosting Application on EC2
-
-### Step 2.1: Transfer Code to EC2
-You can either upload the project directory using SCP or clone it directly via Git.
-
-#### Method A: Using SCP (From your local computer)
+#### macOS / Linux Terminal
 ```bash
-# Run this on your local machine:
-scp -i ~/Downloads/customer-report-key.pem -r /Users/cassain/Projects/Customer_Report_System/Customer-Report-System-AWS ubuntu@<YOUR_EC2_PUBLIC_IP>:/home/ubuntu/
+cd ~/Downloads
+chmod 400 customer-report-key.pem
+ssh -i customer-report-key.pem ubuntu@<YOUR_EC2_PUBLIC_IP>
 ```
 
-#### Method B: Using Git on EC2
+#### Windows PowerShell
+```powershell
+cd $HOME\Downloads
+icacls.exe customer-report-key.pem /inheritance:r /grant:r "$($env:username):(R)"
+ssh -i customer-report-key.pem ubuntu@<YOUR_EC2_PUBLIC_IP>
+```
+
+#### EC2 Instance Connect (Browser 1-Click)
+In AWS Console, select instance > click **Connect** > tab **EC2 Instance Connect** > click **Connect**.
+
+---
+
+## Task 2: Amazon AWS RDS Database Provisioning
+
+### Step 2.1: Creating Amazon RDS PostgreSQL Database in AWS Console
+1. In the AWS Management Console search bar, type **RDS** and open the **Amazon RDS Console**.
+2. Click **Databases** > **Create database**.
+3. Configure the database creation settings:
+   - **Choose a database creation method**: `Standard create`
+   - **Engine options**:
+     - Engine type: **`PostgreSQL`** (or `MySQL`)
+     - Version: `PostgreSQL 16.x` (or latest stable default)
+   - **Templates**: Select **`Free tier`** (This automatically selects eligible instance types and configurations).
+   - **Settings**:
+     - **DB instance identifier**: `customer-report-rds`
+     - **Master username**: `postgres`
+     - **Master password**: `YourSecureRDSPassword123!` (Choose a strong password and save it)
+   - **Instance configuration**:
+     - DB instance class: **`db.t3.micro`** or **`db.t4g.micro`** (1 vCPU, 1 GiB RAM - Free Tier).
+   - **Storage**:
+     - Storage type: `General Purpose SSD (gp3)`
+     - Allocated storage: **`20 GiB`** (Included in Free Tier)
+     - **Uncheck** *Enable storage autoscaling* (to prevent unexpected scaling beyond free tier).
+   - **Connectivity**:
+     - Virtual Private Cloud (VPC): Choose **Default VPC** (same VPC as your EC2 instance).
+     - **Public access**: `Yes` (Allows direct connection from local development and EC2) or `No` (EC2-only access).
+     - VPC security group: Choose **Create new** > Name: `customer-report-rds-sg`.
+     - Database port: `5432` (PostgreSQL default).
+   - **Additional configuration**:
+     - **Initial database name**: `customer_report_system`
+     - Backup retention period: `7 days` (Free automated snapshots).
+     - Encryption: `Enable encryption` (AWS KMS default key).
+4. Click **Create database**.
+5. Wait 4-8 minutes until **Status** becomes **`Available`**.
+
+---
+
+### Step 2.2: Configure RDS Security Group for EC2 Connection
+To allow the EC2 backend server to communicate securely with the RDS database:
+1. In the RDS Console, click on your database `customer-report-rds`.
+2. Under **Connectivity & security**, click on the **VPC security groups** link (`customer-report-rds-sg`).
+3. Select the security group > click the **Inbound rules** tab > click **Edit inbound rules**.
+4. Add the following rule:
+   - **Type**: `PostgreSQL` (Port `5432`)
+   - **Source**: Select **Custom** and search for your EC2 Security Group ID (`customer-report-ec2-sg` or `sg-xxxxxx`), or select `0.0.0.0/0` / `My IP` for testing.
+5. Click **Save rules**.
+6. Go back to your RDS database details and copy the **Endpoint**:
+   *(Example Endpoint: `customer-report-rds.c7yxxxxxx.us-east-1.rds.amazonaws.com`)*
+
+---
+
+## Task 3: Deploying Full-Stack Application on EC2 with RDS
+
+### Step 3.1: Transfer / Clone Project to EC2
 ```bash
-# Run inside your EC2 SSH session:
-git clone <YOUR_GITHUB_REPO_URL> Customer-Report-System-AWS
+# Inside your EC2 SSH terminal:
+git clone https://github.com/Mayank3613/AWS.git Customer-Report-System-AWS
 cd Customer-Report-System-AWS
 ```
 
 ---
 
-### Step 2.2: Automated Server Environment Setup
-Run the automated provisioning script provided in `aws/scripts/setup-ec2.sh`. This installs Node.js 20 LTS, MongoDB Community Server, Nginx, PM2, and configures a 2GB swap space:
-
+### Step 3.2: Run Automated Server Setup
 ```bash
-cd /home/ubuntu/Customer-Report-System-AWS
 chmod +x aws/scripts/*.sh
 ./aws/scripts/setup-ec2.sh
 ```
-
-**What this script configures:**
-- Updates Ubuntu repositories.
-- Enables **2GB Swap Memory** (vital for `t2.micro` instances with 1GB RAM to prevent out-of-memory crashes during `npm run build`).
-- Installs **Node.js 20 LTS** & **NPM**.
-- Installs & starts **MongoDB Community Edition** (`mongod.service` on `127.0.0.1:27017`).
-- Installs & enables **Nginx**.
-- Installs **PM2** process manager globally.
-- Configures **UFW Firewall** allowing ports 22, 80, and 443.
-
-Verify services are running:
-```bash
-node -v                   # Should output v20.x
-npm -v                    # Should output 10.x
-sudo systemctl status mongod --no-pager   # Active: active (running)
-sudo systemctl status nginx --no-pager    # Active: active (running)
-```
+*This installs Node.js 20 LTS, PostgreSQL client tools, Nginx, PM2, and enables 2GB Swap space.*
 
 ---
 
-### Step 2.3: Build and Deploy the Application
-Run the one-command deployment script:
+### Step 3.3: Configure Amazon RDS Environment Variables
+Create and edit `.env`:
+```bash
+cp .env.production .env
+nano .env
+```
+Update the RDS credentials with your actual AWS RDS endpoint:
+```env
+PORT=5000
+NODE_ENV=production
 
+# Amazon AWS RDS Configuration
+DB_HOST=customer-report-rds.c7yxxxxxx.us-east-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=customer_report_system
+DB_USER=postgres
+DB_PASSWORD=YourSecureRDSPassword123!
+DB_DIALECT=postgres
+DB_SSL=true
+
+JWT_SECRET=super_secret_jwt_key_aws_customer_report_2026_change_this
+CORS_ORIGIN=*
+SERVE_STATIC=false
+```
+Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
+
+---
+
+### Step 3.4: Seed RDS Database & Deploy
+Run the one-command deployment script:
 ```bash
 ./aws/scripts/deploy.sh
 ```
 
-**Or perform the steps manually:**
-1. **Configure Environment File**:
-   ```bash
-   cp .env.production .env
-   ```
-2. **Install Backend Dependencies & Seed Database**:
-   ```bash
-   npm install --production=false
-   node seed.js
-   ```
-3. **Build Frontend (React Production Bundle)**:
-   ```bash
-   cd client
-   export NODE_OPTIONS="--max-old-space-size=1536"
-   npm install --legacy-peer-deps
-   npm run build
-   cd ..
-   ```
-4. **Configure Nginx Reverse Proxy**:
-   ```bash
-   sudo cp aws/nginx/customer-report.conf /etc/nginx/sites-available/customer-report
-   sudo ln -sf /etc/nginx/sites-available/customer-report /etc/nginx/sites-enabled/
-   sudo rm -f /etc/nginx/sites-enabled/default
-   sudo nginx -t
-   sudo systemctl reload nginx
-   ```
-5. **Start Application with PM2**:
-   ```bash
-   pm2 start aws/pm2/ecosystem.config.js --env production
-   pm2 save
-   pm2 startup
-   ```
+**What this accomplishes:**
+1. Installs backend dependencies (`sequelize`, `pg`, `bcryptjs`, etc.).
+2. Builds React production bundle (`npm run build`).
+3. Connects to Amazon RDS and runs `node seed.js` (creating all relational tables and default Admin/Manager/Staff accounts).
+4. Configures Nginx reverse proxy routing `/api` to port 5000 and `/` to React.
+5. Launches PM2 process manager for 24/7 background uptime.
 
 ---
 
-### Step 2.4: Verification & Live Testing
-1. Open your web browser and navigate to:
+### Step 3.5: Verification & Live Testing
+1. Open your browser and navigate to:
    ```
    http://<YOUR_EC2_PUBLIC_IP>
    ```
-2. Test the **Health Check Endpoint**:
+2. Check the **Health Check Endpoint**:
    ```
    http://<YOUR_EC2_PUBLIC_IP>/api/health
    ```
@@ -254,29 +243,23 @@ Run the one-command deployment script:
    {
      "status": "OK",
      "service": "Customer Report System API",
+     "databaseEngine": "Amazon AWS RDS (PostgreSQL/MySQL)",
+     "databaseHost": "customer-report-rds.c7yxxxxxx.us-east-1.rds.amazonaws.com",
+     "databaseStatus": "Connected (Amazon RDS)",
      "environment": "production",
-     "database": "Connected",
-     "uptimeSeconds": 42
+     "uptimeSeconds": 45
    }
    ```
-3. **Log in with seeded credentials**:
-   - **Admin Account**:
-     - Email: `admin@example.com`
-     - Password: `password123`
-   - **Manager Account**:
-     - Email: `manager@example.com`
-     - Password: `password123`
-   - **Staff Account**:
-     - Email: `staff@example.com`
-     - Password: `password123`
+3. **Login with Default Accounts**:
+   - **Admin**: `admin@example.com` / `password123`
+   - **Manager**: `manager@example.com` / `password123`
+   - **Staff**: `staff@example.com` / `password123`
 
 ---
 
-## Task 3: Policy & Access Rights Configuration for End Users / Consumers
+## Task 4: Policy & Access Rights for End Users / Consumers (AWS IAM)
 
-In cloud security and compliance, access control is implemented at two distinct layers:
-1. **Cloud Infrastructure Level (AWS IAM)**: Controls who can view, access, or modify AWS cloud resources.
-2. **Application Level (MERN RBAC)**: Controls access within the Customer Report System (Admin, Manager, Staff).
+In cloud environments, security is implemented across two distinct tiers:
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -284,314 +267,138 @@ In cloud security and compliance, access control is implemented at two distinct 
 |                                                                                   |
 |   +---------------------------------------------------------------------------+   |
 |   |            LAYER 1: AWS IAM (Infrastructure / Consumer Level)             |   |
-|   |   - Restricts AWS Console / API access                                    |   |
-|   |   - Grants Read-Only visibility to consumers/auditors                     |   |
-|   |   - EC2 Instance Profile for secure S3 backup writes                      |   |
+|   |   - Restricts AWS Management Console / API access                         |   |
+|   |   - Grants Read-Only visibility to consumers/auditors for EC2 & RDS       |   |
+|   |   - EC2 Instance Profile for secure S3 RDS backups without credentials    |   |
 |   +-------------------------------------+-------------------------------------+   |
 |                                         |                                         |
 |                                         v                                         |
 |   +---------------------------------------------------------------------------+   |
 |   |            LAYER 2: APPLICATION RBAC (Customer Report System)             |   |
-|   |   - Admin: Full system access, audit logs, user management                |   |
-|   |   - Manager: View reports, customer insights, assign tickets              |   |
-|   |   - Staff: Log interactions, submit customer reports                      |   |
+|   |   - Admin: Full system control, audit trails, user management             |   |
+|   |   - Manager: Analytics, complaint oversight, risk scoring                 |   |
+|   |   - Staff: Customer profile management, interaction logging               |   |
 |   +---------------------------------------------------------------------------+   |
 +-----------------------------------------------------------------------------------+
 ```
 
----
-
-### Step 3.1: Creating Custom IAM Policy for End-User / Consumer
-Following the **Principle of Least Privilege (PoLP)**, consumers and external auditors must only have read-only access to view system status and public report exports, with explicit `Deny` on destructive actions (like stopping or terminating instances).
-
-1. In the AWS Console, navigate to **IAM (Identity and Access Management)**.
-2. In the left sidebar, click **Policies** > **Create policy**.
-3. Select the **JSON** tab and paste the following policy content (located in `aws/iam-policies/enduser-consumer-policy.json`):
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "AllowConsumerReadOnlyEC2Status",
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DescribeInstances",
-        "ec2:DescribeInstanceStatus",
-        "ec2:DescribeSecurityGroups",
-        "ec2:DescribeVolumes"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "AllowConsumerCloudWatchMetricsView",
-      "Effect": "Allow",
-      "Action": [
-        "cloudwatch:GetMetricData",
-        "cloudwatch:GetMetricStatistics",
-        "cloudwatch:ListMetrics"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "AllowConsumerReadReportsFromS3",
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:ListBucket"
-      ],
-      "Resource": [
-        "arn:aws:s3:::customer-report-system-public-reports",
-        "arn:aws:s3:::customer-report-system-public-reports/*"
-      ]
-    },
-    {
-      "Sid": "DenyDestructiveActions",
-      "Effect": "Deny",
-      "Action": [
-        "ec2:TerminateInstances",
-        "ec2:StopInstances",
-        "ec2:DeleteVolume",
-        "s3:DeleteObject",
-        "s3:DeleteBucket",
-        "iam:*"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
-4. Click **Next**.
-5. Set **Policy Name**: `CustomerReport-Consumer-ReadOnly-Policy`.
-6. Description: `Grants end-users and auditors read-only visibility while blocking all destructive actions.`
-7. Click **Create policy**.
-
----
-
-### Step 3.2: Creating IAM User Group & Assigning End Users
-1. In the IAM sidebar, click **User groups** > **Create group**.
-2. **User group name**: `Customer-Report-Auditors`
-3. Under **Attach permissions policies**, search for and select:
-   - `CustomerReport-Consumer-ReadOnly-Policy`
-4. Click **Create group**.
-5. Click **Users** > **Create user**:
-   - **User name**: `auditor-consumer`
-   - Check **Provide user access to the AWS Management Console**.
-   - Assign the user to the `Customer-Report-Auditors` group.
-   - Click **Create user**.
-
----
-
-### Step 3.3: Creating IAM Role for the EC2 Instance (Instance Profile)
-Attaching an IAM Role to the EC2 instance allows it to write backups directly to S3 and stream logs to CloudWatch without hardcoding AWS Access Keys in `.env` files:
-
-1. In IAM, click **Roles** > **Create role**.
-2. **Trusted entity type**: `AWS service` | **Use case**: `EC2`.
-3. Under permissions, click **Create policy** (JSON) and paste `aws/iam-policies/ec2-instance-role.json`:
+### Step 4.1: Custom Least-Privilege IAM Policy for Consumers/Auditors
+1. Go to **AWS Console > IAM > Policies > Create policy**.
+2. Select **JSON** and paste [`aws/iam-policies/enduser-consumer-policy.json`](./aws/iam-policies/enduser-consumer-policy.json):
    ```json
    {
      "Version": "2012-10-17",
      "Statement": [
        {
-         "Sid": "AllowCloudWatchLogsAndMetrics",
+         "Sid": "AllowConsumerReadOnlyEC2AndRDSStatus",
          "Effect": "Allow",
          "Action": [
-           "logs:CreateLogGroup",
-           "logs:CreateLogStream",
-           "logs:PutLogEvents",
-           "cloudwatch:PutMetricData"
+           "ec2:DescribeInstances",
+           "ec2:DescribeInstanceStatus",
+           "ec2:DescribeSecurityGroups",
+           "rds:DescribeDBInstances",
+           "rds:DescribeDBClusters",
+           "rds:DescribeDBSnapshots"
          ],
          "Resource": "*"
        },
        {
-         "Sid": "AllowS3ReportBackupAccess",
+         "Sid": "AllowConsumerCloudWatchMetricsView",
          "Effect": "Allow",
          "Action": [
-           "s3:PutObject",
-           "s3:GetObject",
-           "s3:ListBucket"
+           "cloudwatch:GetMetricData",
+           "cloudwatch:GetMetricStatistics",
+           "cloudwatch:ListMetrics"
          ],
-         "Resource": [
-           "arn:aws:s3:::customer-report-system-backups",
-           "arn:aws:s3:::customer-report-system-backups/*"
-         ]
+         "Resource": "*"
+       },
+       {
+         "Sid": "DenyDestructiveActions",
+         "Effect": "Deny",
+         "Action": [
+           "ec2:TerminateInstances",
+           "ec2:StopInstances",
+           "rds:DeleteDBInstance",
+           "rds:StopDBInstance",
+           "s3:DeleteObject",
+           "iam:*"
+         ],
+         "Resource": "*"
        }
      ]
    }
    ```
-4. Name the policy `CustomerReport-EC2-Instance-Policy` and create it.
-5. Attach it to the role and name the role `CustomerReport-EC2-Role`.
-6. Go to **EC2 > Instances** > Select your instance > **Actions** > **Security** > **Modify IAM role**.
-7. Select `CustomerReport-EC2-Role` and click **Update IAM role**.
+3. Name policy: `CustomerReport-Consumer-ReadOnly-Policy` and create it.
 
 ---
 
-## Task 4: Security Hardening & Increasing EBS Storage Size
-
-### Part 4A: Security Configuration
-
-#### 1. Security Groups (Network Layer)
-In the AWS EC2 Console under **Security Groups**, configure strict inbound access:
-| Protocol | Port | Source | Purpose | Security Recommendation |
-| :--- | :--- | :--- | :--- | :--- |
-| **SSH** | `22` | `My IP` (`xx.xx.xx.xx/32`) | Server Administration | Never leave open to `0.0.0.0/0` in production |
-| **HTTP** | `80` | `0.0.0.0/0` | Public Web Access | Routed to Nginx reverse proxy |
-| **HTTPS** | `443` | `0.0.0.0/0` | Secure SSL/TLS Web Traffic | Encrypted end-user communication |
-| **MongoDB** | `27017` | *Blocked from internet* | Database | Only accessible locally via `127.0.0.1` |
-| **API** | `5000` | *Blocked from internet* | Node.js Backend | Only accessible locally via Nginx reverse proxy |
-
-#### 2. Host Firewall (UFW)
-Ensure UFW is enabled on Ubuntu:
-```bash
-sudo ufw status verbose
-```
-*Output:*
-```
-Status: active
-To                         Action      From
---                         ------      ----
-22/tcp                     ALLOW IN    Anywhere
-80/tcp                     ALLOW IN    Anywhere
-443/tcp                    ALLOW IN    Anywhere
-```
-
-#### 3. Enable Free SSL/TLS Certificate with Let's Encrypt (Optional for Custom Domains)
-If you point a domain to your EC2 Public IP:
-```bash
-sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d yourdomain.com
-```
+### Step 4.2: EC2 Instance Profile Role for Secure RDS S3 Backups
+1. In IAM, click **Roles > Create role** > Select **AWS service (EC2)**.
+2. Attach policy [`aws/iam-policies/ec2-instance-role.json`](./aws/iam-policies/ec2-instance-role.json) allowing S3 backup uploads and CloudWatch metrics.
+3. Name role: `CustomerReport-EC2-Role`.
+4. In **EC2 > Instances > Select Instance > Actions > Security > Modify IAM role**, attach `CustomerReport-EC2-Role`.
 
 ---
 
-### Part 4B: Increasing EBS Volume Storage Size (Live Volume & Filesystem Expansion)
+## Task 5: Security Hardening & Storage Size Expansion (EBS & RDS)
 
-AWS allows dynamic EBS volume modification without stopping the instance or incurring downtime.
-
-#### Step 4B.1: Increase Volume Size in AWS Console
-1. Go to **AWS Console > EC2 > Elastic Block Store > Volumes**.
-2. Select the volume attached to your instance (e.g. `vol-0a1b2c3d4e5f6g7h8`).
-3. Click **Actions** > **Modify volume**.
-4. Change the **Size (GiB)**:
-   - Change from `8 GiB` to **`20 GiB`** (or up to 30 GiB within the Free Tier limit).
-5. Click **Modify** and confirm.
-6. The volume state will change to `modifying` and then `optimizing` / `in-use`.
+### Part 5A: Security Hardening
+1. **Network Layer Isolation**:
+   - RDS Database is placed inside a private/restricted security group accessible only from the EC2 instance Security Group on port 5432.
+   - Nginx handles all public traffic on port 80/443; Node.js port 5000 and RDS port 5432 are never directly exposed to unauthorized IPs.
+2. **Data-in-Transit Encryption**:
+   - SSL/TLS is enforced on all Sequelize queries between EC2 and Amazon RDS (`ssl: { require: true, rejectUnauthorized: false }`).
+3. **Data-at-Rest Encryption**:
+   - Amazon RDS storage encryption enabled using AWS KMS.
 
 ---
 
-#### Step 4B.2: Expand the Linux Partition & Filesystem (OS Level)
-Modifying the volume in AWS Console makes raw storage available, but the Linux filesystem needs to be expanded to utilize the new space.
+### Part 5B: Storage Size Expansion (EBS & RDS)
 
-##### Method 1: Using the Automated Script
-```bash
-cd /home/ubuntu/Customer-Report-System-AWS
-./aws/scripts/resize-disk.sh
-```
-
-##### Method 2: Step-by-Step Manual Execution
-
-1. **Check current disk space before expanding**:
+#### 1. Expanding EC2 EBS Volume Storage
+1. In **AWS Console > EC2 > Volumes**, select the root volume > **Actions > Modify volume**.
+2. Increase size from `8 GiB` to **`20 GiB`** (within 30 GB Free Tier limit) > click **Modify**.
+3. In your EC2 terminal, run the automated expansion script:
    ```bash
-   df -hT /
+   ./aws/scripts/resize-disk.sh
    ```
-   *Output shows 8GB disk size.*
+4. Verify updated storage with `df -hT /`.
 
-2. **Inspect block devices**:
-   ```bash
-   lsblk
-   ```
-   *Example Output:*
-   ```
-   NAME        MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
-   xvda        202:0    0   20G  0 disk 
-   └─xvda1     202:1    0    8G  0 part /
-   ```
-   *(Notice the disk `xvda` is 20G, but partition `xvda1` is still only 8G).*
-
-3. **Install cloud-guest-utils (if not already installed)**:
-   ```bash
-   sudo apt-get update -y
-   sudo apt-get install -y cloud-guest-utils
-   ```
-
-4. **Extend the partition**:
-   - For `xvda` (device `/dev/xvda`, partition `1`):
-     ```bash
-     sudo growpart /dev/xvda 1
-     ```
-   - For NVMe devices (`/dev/nvme0n1`, partition `1` on newer instances):
-     ```bash
-     sudo growpart /dev/nvme0n1 1
-     ```
-   *Output: `CHANGED: partition=1 start=2048 old: size=16775135 end=16777183 new: size=41940959 end=41943007`*
-
-5. **Resize the Filesystem**:
-   - Check filesystem type:
-     ```bash
-     df -T /
-     ```
-   - If filesystem type is **ext4**:
-     ```bash
-     sudo resize2fs /dev/xvda1
-     # (or sudo resize2fs /dev/nvme0n1p1)
-     ```
-   - If filesystem type is **xfs**:
-     ```bash
-     sudo xfs_growfs /
-     ```
-
-6. **Verify the expanded disk storage**:
-   ```bash
-   df -hT /
-   ```
-   *Example Output:*
-   ```
-   Filesystem     Type  Size  Used Avail Use% Mounted on
-   /dev/root      ext4   20G  3.8G   16G  20% /
-   ```
-   *(The storage capacity has now successfully increased to 20 GB with 0 downtime!)*
+#### 2. Modifying Amazon RDS Storage Capacity
+1. In **AWS Console > RDS > Databases > Select `customer-report-rds` > Modify**.
+2. Under **Storage > Allocated storage**, adjust storage (e.g., from 20 GiB up to desired size).
+3. Select **Apply immediately** and confirm modification.
 
 ---
 
 ## Automated Scripts Reference
 
-| Script Path | Description | Execution Command |
+| Script Path | Purpose | Execution Command |
 | :--- | :--- | :--- |
-| `aws/scripts/setup-ec2.sh` | Provisions Node 20, MongoDB, Nginx, PM2 & Swap | `./aws/scripts/setup-ec2.sh` |
-| `aws/scripts/deploy.sh` | Builds frontend, configures Nginx, and runs PM2 | `./aws/scripts/deploy.sh` |
-| `aws/scripts/resize-disk.sh` | Resizes partition & filesystem after EBS expansion | `./aws/scripts/resize-disk.sh` |
-| `aws/scripts/backup-db-to-s3.sh` | Backs up MongoDB database and uploads to AWS S3 | `./aws/scripts/backup-db-to-s3.sh` |
-| `aws/scripts/restore-db.sh` | Restores MongoDB from backup archive | `./aws/scripts/restore-db.sh <file>` |
+| `aws/scripts/setup-ec2.sh` | Provisions Node 20, PostgreSQL tools, Nginx, PM2 & 2GB Swap | `./aws/scripts/setup-ec2.sh` |
+| `aws/scripts/deploy.sh` | Builds frontend, configures Nginx, seeds RDS, launches PM2 | `./aws/scripts/deploy.sh` |
+| `aws/scripts/backup-rds.sh` | Dumps Amazon RDS PostgreSQL/MySQL & uploads to S3 | `./aws/scripts/backup-rds.sh` |
+| `aws/scripts/restore-rds.sh` | Restores database dump to Amazon RDS instance | `./aws/scripts/restore-rds.sh <file>` |
+| `aws/scripts/resize-disk.sh` | Resizes Linux partition & filesystem after EBS expansion | `./aws/scripts/resize-disk.sh` |
 
 ---
 
 ## DA1 Viva / Oral Exam Q&A
 
-### Q1: What is an EC2 Instance and why did we choose `t2.micro` / `t3.micro`?
-> **Answer**: Amazon Elastic Compute Cloud (EC2) provides resizable compute capacity in the cloud. We chose `t2.micro` / `t3.micro` because it provides 1 vCPU and 1 GiB memory and is included in the AWS Free Tier (750 hours/month), making it 100% cost-free for academic submissions.
+### Q1: What is Amazon RDS and why did we migrate from local/NoSQL MongoDB to Amazon RDS?
+> **Answer**: Amazon Relational Database Service (RDS) is a fully-managed cloud database service that automates provisioning, hardware scaling, patching, automated daily backups, point-in-time recovery, and multi-AZ replication. We migrated to Amazon RDS PostgreSQL because our Customer Report System features strongly relational entities (Users, Customers, Reports, Audit Logs, and Interaction Logs) requiring ACID transactions, foreign key integrity, and enterprise-grade cloud resilience.
 
-### Q2: Why is Nginx used as a Reverse Proxy instead of exposing Node.js directly on Port 5000?
+### Q2: How does Sequelize ORM connect to Amazon RDS securely?
+> **Answer**: Sequelize connects via TCP over Port 5432 using encrypted SSL/TLS (`dialectOptions: { ssl: { require: true, rejectUnauthorized: false } }`). Credentials are securely passed through server environment variables (`DB_HOST`, `DB_USER`, `DB_PASSWORD`), and connection pooling (`max: 10, idle: 10000`) prevents resource exhaustion on the `db.t3.micro` instance.
+
+### Q3: What is the purpose of Nginx in front of Node.js on EC2?
+> **Answer**: Nginx acts as a high-performance reverse proxy and web server. It terminates incoming HTTP/HTTPS traffic on ports 80/443, serves cached React static assets directly with gzip compression, and forwards `/api` requests to Express on localhost port 5000, eliminating CORS issues and hiding backend infrastructure.
+
+### Q4: How is the Principle of Least Privilege enforced on AWS for End Users?
+> **Answer**: Through AWS IAM custom policies (`CustomerReport-Consumer-ReadOnly-Policy`), end-users and auditors are granted read-only permissions (`ec2:Describe*`, `rds:Describe*`, `cloudwatch:GetMetric*`) while explicitly denying any destructive capabilities (`ec2:TerminateInstances`, `rds:DeleteDBInstance`, `iam:*`).
+
+### Q5: How do you increase EBS volume storage without causing downtime?
 > **Answer**:
-> 1. **Security**: Nginx shields the backend Express application and MongoDB database from direct exposure to the public internet.
-> 2. **Port Simplification**: End users access standard HTTP (port 80) or HTTPS (port 443) without typing `:5000` in the URL.
-> 3. **CORS Elimination**: By serving both React static files (`/`) and API routes (`/api`) under the same domain/IP, cross-origin request issues are eliminated.
-> 4. **Performance**: Nginx handles static file caching, gzip compression, and SSL termination faster than Node.js.
-
-### Q3: What is the purpose of PM2 in our deployment?
-> **Answer**: PM2 is an enterprise-grade production process manager for Node.js. It ensures the backend API runs continuously in the background, automatically restarts the application if it crashes, reboots the server on EC2 system restarts (`pm2 startup`), and provides memory threshold safeguards (`max_memory_restart: 450M`).
-
-### Q4: Explain the difference between AWS Security Groups and Network ACLs (NACLs).
-> **Answer**:
-> - **Security Groups**: Stateful firewalls operating at the instance level (if inbound traffic is allowed, outbound response is automatically allowed).
-> - **Network ACLs**: Stateless firewalls operating at the subnet level requiring explicit inbound and outbound rules.
-
-### Q5: How does AWS IAM enforce the Principle of Least Privilege (PoLP)?
-> **Answer**: The Principle of Least Privilege dictates that users or services receive only the minimum permissions necessary to perform their role. In our project:
-> - The **Consumer/Auditor IAM Policy** allows only `ec2:Describe*` and `cloudwatch:GetMetric*` (Read-only) and explicitly denies destructive actions (`ec2:TerminateInstances`, `s3:DeleteObject`).
-> - The **EC2 Instance Role** is granted S3 PutObject and CloudWatch write permissions without saving long-term AWS access keys on the server filesystem.
-
-### Q6: What steps are required to increase an EBS Volume's size on a running EC2 instance?
-> **Answer**:
-> 1. **Cloud Level**: Modify the EBS volume size in the AWS Console (e.g. from 8GB to 20GB).
-> 2. **Partition Level**: Run `sudo growpart /dev/xvda 1` to extend the disk partition table.
-> 3. **Filesystem Level**: Run `sudo resize2fs /dev/xvda1` (for ext4) or `sudo xfs_growfs /` (for XFS) to expand the filesystem to fill the new partition without rebooting.
+> 1. Increase volume size dynamically in the AWS EC2 Console.
+> 2. On the live Linux EC2 instance, execute `sudo growpart /dev/xvda 1` to expand the partition table.
+> 3. Run `sudo resize2fs /dev/xvda1` (for ext4) to stretch the filesystem to fill the newly available block storage without unmounting or rebooting.

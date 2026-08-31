@@ -1,70 +1,81 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const customerSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: [true, 'Please add a customer name']
-    },
-    email: {
-        type: String,
-        required: [true, 'Please add an email'],
-        unique: true
-    },
-    contact: {
-        type: String,
-        required: [true, 'Please add a contact number']
-    },
-    status: {
-        type: String,
-        enum: ['Active', 'Inactive', 'Banned', 'On Hold'],
-        default: 'Active'
-    },
-    riskScore: {
-        type: String,
-        enum: ['Low', 'Medium', 'High'],
-        default: 'Low'
-    },
-    ltv: {
-        type: Number,
-        default: 0
-    },
-    mrr: {
-        type: Number,
-        default: 0
-    },
-    healthScore: {
-        type: Number,
-        min: 0,
-        max: 100,
-        default: 100
-    },
-    segment: {
-        type: String,
-        enum: ['VIP', 'Regular', 'Standard', 'Premium', 'Inactive'],
-        default: 'Regular'
-    },
-    clv: {
-        type: Number,
-        default: 0
-    },
-    pendingPayments: {
-        type: Number,
-        default: 0
-    },
-    assignedTo: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    },
-    lastActivity: {
-        type: Date,
-        default: Date.now
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
+const Customer = sequelize.define('Customer', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    validate: {
+      isEmail: true
     }
+  },
+  contact: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  status: {
+    type: DataTypes.ENUM('Active', 'Inactive', 'Banned', 'On Hold'),
+    defaultValue: 'Active'
+  },
+  riskScore: {
+    type: DataTypes.ENUM('Low', 'Medium', 'High'),
+    defaultValue: 'Low'
+  },
+  healthScore: {
+    type: DataTypes.INTEGER,
+    defaultValue: 100,
+    validate: {
+      min: 0,
+      max: 100
+    }
+  },
+  ltv: {
+    type: DataTypes.FLOAT,
+    defaultValue: 0
+  },
+  mrr: {
+    type: DataTypes.FLOAT,
+    defaultValue: 0
+  },
+  clv: {
+    type: DataTypes.FLOAT,
+    defaultValue: 0
+  },
+  segment: {
+    type: DataTypes.ENUM('VIP', 'Regular', 'Standard', 'Premium', 'Inactive'),
+    defaultValue: 'Regular'
+  },
+  pendingPayments: {
+    type: DataTypes.FLOAT,
+    defaultValue: 0
+  },
+  assignedTo: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
+  lastActivity: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  }
 }, {
-    timestamps: true
+  timestamps: true,
+  tableName: 'customers'
 });
 
-module.exports = mongoose.model('Customer', customerSchema);
+Customer.prototype.toJSON = function () {
+  const values = { ...this.get() };
+  values._id = values.id;
+  return values;
+};
+
+module.exports = Customer;

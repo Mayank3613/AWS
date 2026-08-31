@@ -1,35 +1,45 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const interactionLogSchema = new mongoose.Schema({
-    customerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Customer',
-        required: true
-    },
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
-    type: {
-        type: String,
-        enum: ['Call', 'Email', 'Complaint', 'Meeting', 'Note'],
-        required: true
-    },
-    notes: {
-        type: String,
-        required: true
-    },
-    rating: {
-        type: Number,
-        min: 1,
-        max: 5
-    },
-    resolvedAt: {
-        type: Date
-    }
+const InteractionLog = sequelize.define('InteractionLog', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  customerId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  type: {
+    type: DataTypes.ENUM('Call', 'Email', 'Meeting', 'Note', 'Other'),
+    defaultValue: 'Note'
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  rating: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  resolvedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  }
 }, {
-    timestamps: true
+  timestamps: true,
+  tableName: 'interaction_logs'
 });
 
-module.exports = mongoose.model('InteractionLog', interactionLogSchema);
+InteractionLog.prototype.toJSON = function () {
+  const values = { ...this.get() };
+  values._id = values.id;
+  return values;
+};
+
+module.exports = InteractionLog;

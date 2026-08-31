@@ -1,42 +1,53 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const reportSchema = new mongoose.Schema({
+const Report = sequelize.define('Report', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
   customerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Customer',
-    required: true
+    type: DataTypes.UUID,
+    allowNull: false
   },
   customerName: {
-    type: String,
-    required: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   title: {
-    type: String,
-    required: [true, 'Please add a report title']
+    type: DataTypes.STRING,
+    allowNull: false
   },
   description: {
-    type: String,
-    required: [true, 'Please add a description']
+    type: DataTypes.TEXT,
+    allowNull: false
   },
   status: {
-    type: String,
-    enum: ['Open', 'In Progress', 'Resolved'],
-    default: 'Open'
+    type: DataTypes.ENUM('Open', 'In Progress', 'Resolved'),
+    defaultValue: 'Open'
   },
   priority: {
-    type: String,
-    enum: ['Low', 'Medium', 'High', 'Critical'],
-    default: 'Medium'
+    type: DataTypes.ENUM('Low', 'Medium', 'High', 'Critical'),
+    defaultValue: 'Medium'
   },
   assignedTo: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    type: DataTypes.UUID,
+    allowNull: true
   },
   staffName: {
-    type: String
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  tableName: 'reports'
 });
 
-module.exports = mongoose.model('Report', reportSchema);
+Report.prototype.toJSON = function () {
+  const values = { ...this.get() };
+  values._id = values.id;
+  return values;
+};
+
+module.exports = Report;

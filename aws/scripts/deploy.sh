@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Customer Report System - One-Command Deployment Script for AWS EC2
+# Customer Report System - One-Command Deployment Script for AWS EC2 & RDS
 # ==============================================================================
 
 set -e
@@ -11,7 +11,8 @@ if [ ! -d "$APP_DIR" ]; then
 fi
 
 echo "=========================================================="
-echo "🚀 Deploying Customer Report System in: $APP_DIR"
+echo "🚀 Deploying Customer Report System (EC2 + Amazon RDS)"
+echo "📂 Working Directory: $APP_DIR"
 echo "=========================================================="
 
 cd "$APP_DIR"
@@ -20,6 +21,7 @@ cd "$APP_DIR"
 if [ ! -f "$APP_DIR/.env" ]; then
     echo "📝 Creating .env from .env.production template..."
     cp "$APP_DIR/.env.production" "$APP_DIR/.env"
+    echo "⚠️ Please ensure you have configured your Amazon RDS endpoint in $APP_DIR/.env"
 fi
 
 # 2. Install Backend Dependencies
@@ -29,21 +31,21 @@ npm install --production=false
 # 3. Install Frontend Dependencies & Build React App
 echo "⚛️ Building Frontend (React Production Bundle)..."
 cd "$APP_DIR/client"
-# Set memory flag for low-RAM instances
 export NODE_OPTIONS="--max-old-space-size=1536"
 npm install --legacy-peer-deps
 npm run build
 cd "$APP_DIR"
 
-# 4. Seed Initial Database (if needed)
-echo "🍃 Seeding Initial Database Records..."
-node seed.js || true
+# 4. Synchronize & Seed Database on Amazon RDS
+echo "🍃 Initializing Database Schema on Amazon RDS..."
+node seed.js || {
+    echo "⚠️ Seed skipped or encountered non-fatal notice (check RDS credentials in .env if DB is not configured yet)."
+}
 
 # 5. Configure Nginx Reverse Proxy
 echo "🌐 Configuring Nginx Site..."
 sudo cp "$APP_DIR/aws/nginx/customer-report.conf" /etc/nginx/sites-available/customer-report
 sudo ln -sf /etc/nginx/sites-available/customer-report /etc/nginx/sites-enabled/
-# Remove default Nginx welcome page if present
 sudo rm -f /etc/nginx/sites-enabled/default
 
 # Test Nginx Config

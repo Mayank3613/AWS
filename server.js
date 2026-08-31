@@ -2,14 +2,13 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
-const mongoose = require('mongoose');
-const connectDB = require('./config/db');
+const { sequelize, connectDB } = require('./config/db');
 const initCronJobs = require('./utils/cronJobs');
 
 // Load environment variables
 dotenv.config();
 
-// Connect to MongoDB
+// Connect to Amazon AWS RDS Database
 connectDB();
 
 // Initialize Cron Jobs
@@ -17,27 +16,18 @@ initCronJobs();
 
 const app = express();
 
-// Configure CORS for AWS EC2 / Nginx / Multiple Origins
+// Configure CORS for AWS EC2 / RDS / Multiple Origins
 const allowedOrigins = process.env.CORS_ORIGIN 
   ? process.env.CORS_ORIGIN.split(',').map(item => item.trim())
   : ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://m-m-solutions.netlify.app'];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, postman, or server-side calls)
     if (!origin) return callback(null, true);
-    
-    // If wildcard allowed or origin in whitelist
     if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    
-    // In production with reverse proxy, allow any host if configured
-    if (process.env.ALLOW_ALL_ORIGINS === 'true') {
-      return callback(null, true);
-    }
-
-    return callback(null, true); // Permissive for easy cloud deployment
+    return callback(null, true); // Cloud permissive
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -48,14 +38,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // AWS CloudWatch / Health Check Endpoint
-app.get('/api/health', (req, res) => {
-  const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'Disconnected';
+  try {
+    await sequelize.authenticate();
+    dbStatus = 'Connected (Amazon RDS)';
+  } catch (err) {
+    dbStatus = 'Error: ' + err.message;
+  }
+
   res.status(200).json({
     status: 'OK',
     service: 'Customer Report System API',
+    databaseEngine: 'Amazon AWS RDS (PostgreSQL/MySQL)',
+    databaseHost: process.env.DB_HOST || 'localhost',
+    databaseStatus: dbStatus,
     environment: process.env.NODE_ENV || 'development',
     uptimeSeconds: Math.floor(process.uptime()),
-    database: dbStatus,
     timestamp: new Date().toISOString(),
     memoryUsageMB: Math.round(process.memoryUsage().rss / 1024 / 1024)
   });
@@ -73,13 +72,12 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/interactions', require('./routes/interactionRoutes'));
 app.use('/api/audit', require('./routes/auditRoutes'));
 
-// Serve Frontend Static Build in Production (Fallback if not served directly via Nginx)
+// Serve Frontend Static Build in Production
 if (process.env.SERVE_STATIC === 'true' || process.env.NODE_ENV === 'production') {
   const clientBuildPath = path.join(__dirname, 'client', 'build');
   app.use(express.static(clientBuildPath));
 
   app.get('*', (req, res, next) => {
-    // If request starts with /api, pass to 404 handler
     if (req.url.startsWith('/api')) {
       return next();
     }
@@ -88,9 +86,8 @@ if (process.env.SERVE_STATIC === 'true' || process.env.NODE_ENV === 'production'
 } else {
   app.get('/', (req, res) => {
     res.json({
-      message: '🚀 Customer Report System API is running on AWS EC2',
-      status: 'Connected to MongoDB',
-      version: '1.0.0',
+      message: '🚀 Customer Report System API is running on AWS EC2 & Amazon RDS',
+      database: 'Amazon AWS RDS (PostgreSQL/MySQL)',
       healthCheck: '/api/health'
     });
   });
@@ -114,22 +111,25 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`=========================================`);
-  console.log(`🚀 Customer Report System Server Active`);
+  console.log(`🚀 Customer Report System Active`);
   console.log(`📡 Port: ${PORT}`);
-  console.log(`🌍 Mode: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🗄️ Database: Amazon AWS RDS (${process.env.DB_HOST || 'localhost'})`);
   console.log(`🩺 Health Check: http://localhost:${PORT}/api/health`);
   console.log(`=========================================`);
 });
 
-// Graceful Shutdown for PM2 and Docker
+// Graceful Shutdown
 const gracefulShutdown = (signal) => {
   console.log(`\nReceived ${signal}. Shutting down gracefully...`);
-  server.close(() => {
+  server.close(async () => {
     console.log('HTTP server closed.');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed.');
-      process.exit(0);
-    });
+    try {
+      await sequelize.close();
+      console.log('Amazon RDS connection closed.');
+    } catch (e) {
+      console.error('Error closing database:', e.message);
+    }
+    process.exit(0);
   });
 };
 

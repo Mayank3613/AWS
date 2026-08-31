@@ -1,85 +1,98 @@
-const Customer = require('../models/Customer');
-const Report = require('../models/Report');
+const { Op, fn, col, literal } = require('sequelize');
+const { Customer, Report, sequelize } = require('../models');
 
 const getDashboardStats = async (req, res) => {
-    try {
-        const totalCustomers = await Customer.countDocuments();
+  try {
+    const totalCustomers = await Customer.count();
 
-        const activeComplaints = await Report.countDocuments({
-            status: { $in: ['Open', 'In Progress'] }
-        });
+    const activeComplaints = await Report.count({
+      where: {
+        status: { [Op.in]: ['Open', 'In Progress'] }
+      }
+    });
 
-        const highRiskCustomers = await Customer.countDocuments({
-            riskScore: 'High'
-        });
+    const highRiskCustomers = await Customer.count({
+      where: {
+        riskScore: 'High'
+      }
+    });
 
-        const mrrResult = await Customer.aggregate([
-            {
-                $group: {
-                    _id: null,
-                    totalMRR: { $sum: "$mrr" }
-                }
-            }
-        ]);
-        const totalMRR = mrrResult.length > 0 ? mrrResult[0].totalMRR : 0;
+    const totalMRR = (await Customer.sum('mrr')) || 0;
+    const totalPendingPayments = (await Customer.sum('pendingPayments')) || 0;
 
-        const pendingPaymentResult = await Customer.aggregate([
-            {
-                $group: {
-                    _id: null,
-                    totalPending: { $sum: "$pendingPayments" }
-                }
-            }
-        ]);
-        const totalPendingPayments = pendingPaymentResult.length > 0 ? pendingPaymentResult[0].totalPending : 0;
+    // Risk Distribution for Charts
+    const rawRiskDist = await Customer.findAll({
+      attributes: [
+        'riskScore',
+        [fn('COUNT', col('id')), 'count']
+      ],
+      group: ['riskScore'],
+      raw: true
+    });
 
-        const riskDistribution = await Customer.aggregate([
-            {
-                $group: {
-                    _id: "$riskScore",
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
+    const riskDistribution = rawRiskDist.map((item) => ({
+      _id: item.riskScore || 'Low',
+      count: parseInt(item.count) || 0
+    }));
 
-        const reportStatusDistribution = await Report.aggregate([
-            {
-                $group: {
-                    _id: "$status",
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
+    // Report Status Distribution for Charts
+    const rawReportDist = await Report.findAll({
+      attributes: [
+        'status',
+        [fn('COUNT', col('id')), 'count']
+      ],
+      group: ['status'],
+      raw: true
+    });
 
-        // Sales trend based on createdAt month
-        const monthlySalesTrend = await Customer.aggregate([
-            {
-                $group: {
-                    _id: { month: { $month: "$createdAt" }, year: { $year: "$createdAt" } },
-                    mrrAdded: { $sum: "$mrr" },
-                    customersAdded: { $sum: 1 }
-                }
-            },
-            { $sort: { "_id.year": 1, "_id.month": 1 } }
-        ]);
+    const reportStatusDistribution = rawReportDist.map((item) => ({
+      _id: item.status || 'Open',
+      count: parseInt(item.count) || 0
+    }));
 
-        res.status(200).json({
-            totalCustomers,
-            activeComplaints,
-            highRiskCustomers,
-            totalMRR,
-            totalPendingPayments,
-            riskDistribution,
-            reportStatusDistribution,
-            monthlySalesTrend
-        });
+    // Monthly Sales & Customer Trend
+    const allCustomers = await Customer.findAll({
+      attributes: ['createdAt', 'mrr'],
+      order: [['createdAt', 'ASC']],
+      raw: true
+    });
 
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error' });
-    }
+    const trendMap = {};
+    allCustomers.forEach((c) => {
+      const date = new Date(c.createdAt);
+      const month = date.getMonth() + 1;
+      const year = date.getFullYear();
+      const key = `${year}-${month}`;
+
+      if (!trendMap[key]) {
+        trendMap[key] = {
+          _id: { month, year },
+          mrrAdded: 0,
+          customersAdded: 0
+        };
+      }
+      trendMap[key].mrrAdded += parseFloat(c.mrr) || 0;
+      trendMap[key].customersAdded += 1;
+    });
+
+    const monthlySalesTrend = Object.values(trendMap);
+
+    res.status(200).json({
+      totalCustomers,
+      activeComplaints,
+      highRiskCustomers,
+      totalMRR,
+      totalPendingPayments,
+      riskDistribution,
+      reportStatusDistribution,
+      monthlySalesTrend
+    });
+  } catch (error) {
+    console.error('Dashboard Stats Error:', error);
+    res.status(500).json({ message: 'Error calculating dashboard analytics on Amazon RDS' });
+  }
 };
 
 module.exports = {
-    getDashboardStats
+  getDashboardStats
 };

@@ -1,29 +1,41 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const insightSchema = new mongoose.Schema({
-    customerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Customer',
-        required: true
-    },
-    riskScore: {
-        type: String,
-        enum: ['Low', 'Medium', 'High'],
-        default: 'Low'
-    },
-    recommendation: {
-        type: String,
-        required: true
-    },
-    riskFactors: [{
-        type: String
-    }],
-    generatedAt: {
-        type: Date,
-        default: Date.now
-    }
+const Insight = sequelize.define('Insight', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  customerId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  riskScore: {
+    type: DataTypes.ENUM('Low', 'Medium', 'High'),
+    defaultValue: 'Low'
+  },
+  riskFactors: {
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
+  recommendation: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  generatedAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  }
 }, {
-    timestamps: true
+  timestamps: true,
+  tableName: 'insights'
 });
 
-module.exports = mongoose.model('Insight', insightSchema);
+Insight.prototype.toJSON = function () {
+  const values = { ...this.get() };
+  values._id = values.id;
+  return values;
+};
+
+module.exports = Insight;
