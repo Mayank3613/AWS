@@ -1,11 +1,34 @@
 const dotenv = require('dotenv');
-const { sequelize, User, Customer, Report, InteractionLog, Insight, AuditLog } = require('./models');
 
 dotenv.config();
 
+const dbHost = process.env.DB_HOST || '';
+const isPlaceholderHost = dbHost.includes('xxxxxx') || dbHost.includes('c7y') || !dbHost;
+
 const seedData = async () => {
+  if (isPlaceholderHost) {
+    console.log('\n========================================================================');
+    console.log('⚠️  ACTION REQUIRED: Set your Amazon RDS Endpoint in .env');
+    console.log('========================================================================');
+    console.log(`Current DB_HOST: "${dbHost}" (Template Placeholder)`);
+    console.log('\nSteps to connect your real Amazon RDS database:');
+    console.log('  1. Open AWS Management Console -> Amazon RDS -> Databases.');
+    console.log('  2. Click on your database (e.g., customer-report-rds).');
+    console.log('  3. Under "Connectivity & security", copy the real "Endpoint".');
+    console.log('     (e.g., customer-report-rds.c123456789.us-east-1.rds.amazonaws.com)');
+    console.log('  4. Edit your .env file on EC2:');
+    console.log('     nano /home/ubuntu/Customer-Report-System-AWS/.env');
+    console.log('     DB_HOST=<your-copied-endpoint>');
+    console.log('     DB_PASSWORD=<your-rds-master-password>');
+    console.log('  5. Re-run: node seed.js');
+    console.log('========================================================================\n');
+    return;
+  }
+
   try {
-    console.log(' Connecting to Amazon AWS RDS Database...');
+    const { sequelize, User, Customer, Report, InteractionLog, Insight, AuditLog } = require('./models');
+
+    console.log(`📡 Connecting to Amazon AWS RDS Database (${dbHost})...`);
     await sequelize.authenticate();
     console.log('✅ Connected to Amazon RDS!');
 
@@ -171,8 +194,15 @@ const seedData = async () => {
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Seeding Error on Amazon RDS:', error);
-    process.exit(1);
+    console.log('\n========================================================================');
+    console.log('❌ Could not connect to Amazon RDS Database');
+    console.log(`Error Message: ${error.message}`);
+    console.log('\nTroubleshooting Checklist:');
+    console.log('  1. Is the RDS DB instance in "Available" status in AWS Console?');
+    console.log('  2. Did you copy the exact Endpoint into DB_HOST in .env?');
+    console.log('  3. In the RDS Security Group inbound rules, is Port 5432 allowed from your EC2 Security Group?');
+    console.log('  4. Is DB_PASSWORD in .env matching the Master Password set during RDS creation?');
+    console.log('========================================================================\n');
   }
 };
 
