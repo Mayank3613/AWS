@@ -66,7 +66,7 @@ app.use('/api/audit', require('./routes/auditRoutes'));
 const clientBuildPath = path.join(__dirname, 'client', 'build');
 app.use(express.static(clientBuildPath));
 
-app.get('*', (req, res, next) => {
+app.get('*', (req, res) => {
   if (req.url.startsWith('/api')) {
     return res.status(404).json({ success: false, message: 'API endpoint not found' });
   }
@@ -91,6 +91,14 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🗄️ Database: Amazon AWS RDS (${process.env.DB_HOST || 'localhost'})`);
   console.log(`🩺 Health Check: http://localhost:${PORT}/api/health`);
   console.log(`=========================================`);
+});
+
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use by another process!`);
+  } else {
+    console.error('❌ Server error:', e.message);
+  }
 });
 
 // Graceful Shutdown

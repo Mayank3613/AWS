@@ -35,28 +35,49 @@ node seed.js || {
     echo "⚠️ Seed notice logged."
 }
 
-# 4. Configure Nginx Reverse Proxy (Clean single file to avoid duplicate server blocks)
+# 4. Configure Nginx Reverse Proxy
 echo "🌐 Configuring Nginx Reverse Proxy..."
-sudo rm -f /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf
-sudo cp "$APP_DIR/aws/nginx/customer-report.conf" /etc/nginx/sites-available/customer-report
-sudo ln -sf /etc/nginx/sites-available/customer-report /etc/nginx/sites-enabled/customer-report
+sudo rm -rf /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*
+
+sudo tee /etc/nginx/conf.d/customer_report.conf > /dev/null << 'EOF'
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
 
 # Test & Restart Nginx
 sudo nginx -t
 sudo systemctl restart nginx
 echo "✅ Nginx restarted successfully."
 
-# 5. Cleanly Start / Restart Backend using PM2
+# 5. Kill any orphaned processes on Port 5000 and Start PM2
 echo "⚡ Starting/Restarting PM2 Process Manager..."
+sudo fuser -k 5000/tcp || true
 mkdir -p "$APP_DIR/logs"
 pm2 delete all || true
-pm2 start "$APP_DIR/aws/pm2/ecosystem.config.js" --env production --update-env
+pm2 start server.js --name "customer-report-api" --update-env
 pm2 save
-sleep 2
+sleep 3
 
 # 6. Verify Deployment Locally
-echo -e "\n🩺 Testing Local API Health Check..."
-curl -s http://127.0.0.1:5000/api/health || echo "⚠️ Backend check pending."
+echo -e "\n🩺 Testing Local API Health Check on Port 5000..."
+curl -s http://127.0.0.1:5000/api/health || echo "⚠️ Backend starting up..."
+
+echo -e "\n\n🌐 Testing Through Nginx on Port 80..."
+curl -s http://127.0.0.1:80/api/health || echo "⚠️ Nginx proxy checking..."
 
 echo -e "\n=========================================================="
 echo "🎉 DEPLOYMENT COMPLETE!"
