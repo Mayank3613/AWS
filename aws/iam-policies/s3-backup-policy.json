@@ -1,0 +1,21 @@
+{
+  "Version": "2012-10-17",
+  "Id": "CustomerReportBucketPolicy",
+  "Statement": [
+    {
+      "Sid": "EnforceTLSRequestsOnly",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::customer-report-system-backups",
+        "arn:aws:s3:::customer-report-system-backups/*"
+      ],
+      "Condition": {
+        "Bool": {
+          "aws:SecureTransport": "false"
+        }
+      }
+    }
+  ]
+}
