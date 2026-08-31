@@ -66,11 +66,17 @@ app.use('/api/audit', require('./routes/auditRoutes'));
 const clientBuildPath = path.join(__dirname, 'client', 'build');
 app.use(express.static(clientBuildPath));
 
-app.get('*', (req, res) => {
-  if (req.url.startsWith('/api')) {
-    return res.status(404).json({ success: false, message: 'API endpoint not found' });
+// Express 5 SPA Fallback: Serve index.html for all non-API GET requests
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+    return res.sendFile(path.join(clientBuildPath, 'index.html'));
   }
-  res.sendFile(path.join(clientBuildPath, 'index.html'));
+  next();
+});
+
+// 404 Handler for API endpoints
+app.use('/api', (req, res) => {
+  res.status(404).json({ success: false, message: 'API endpoint not found' });
 });
 
 // Global Error Handler
