@@ -6,16 +6,16 @@ module.exports = {
   apps: [
     {
       name: 'customer-report-api',
-      script: './server.js',
+      script: 'server.js',
       cwd: '/home/ubuntu/Customer-Report-System-AWS',
-      instances: 1, // Single instance suited for t2.micro/t3.micro (1 vCPU, 1GB RAM)
+      exec_mode: 'fork',
+      instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: '450M', // Prevent Out-Of-Memory on 1GB EC2 instance
-      restart_delay: 3000,
-      exp_backoff_restart_delay: 100,
+      max_memory_restart: '450M',
+      restart_delay: 2000,
       env: {
-        NODE_ENV: 'development',
+        NODE_ENV: 'production',
         PORT: 5000
       },
       env_production: {

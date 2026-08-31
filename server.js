@@ -83,11 +83,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
+const PORT = parseInt(process.env.PORT, 10) || 5000;
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`=========================================`);
   console.log(`🚀 Customer Report System Active`);
-  console.log(`📡 Port: ${PORT}`);
+  console.log(`📡 Listening on: 0.0.0.0:${PORT}`);
   console.log(`🗄️ Database: Amazon AWS RDS (${process.env.DB_HOST || 'localhost'})`);
   console.log(`🩺 Health Check: http://localhost:${PORT}/api/health`);
   console.log(`=========================================`);
