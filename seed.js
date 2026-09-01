@@ -451,7 +451,7 @@ const seedData = async () => {
       {
         customerId: customerMap['Globex Tech Solutions'].id,
         userId: staff1.id,
-        type: 'Support Ticket',
+        type: 'Note',
         notes: 'Assisted DevOps team with S3 bucket policy integration for automated CSV backup export.',
         rating: 4
       }
