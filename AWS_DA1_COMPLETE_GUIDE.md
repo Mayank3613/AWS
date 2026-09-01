@@ -30,7 +30,7 @@ This document contains the complete step-by-step documentation for completing **
 |   |   +---------------------------------------+   +-----------------------------------+   |   |
 |   |   |        AMAZON EC2 INSTANCE            |   |          AMAZON AWS RDS           |   |   |
 |   |   |    (Ubuntu 24.04 LTS - t2/t3.micro)   |   |   (PostgreSQL 16 - db.t3.micro)   |   |   |
-|   |   |         IP: 13.235.68.93              |   |                                   |   |   |
+|   |   |         IP: 3.110.108.245              |   |                                   |   |   |
 |   |   |                                       |   |                                   |   |   |
 |   |   |   +-------------------------------+   |   |   +---------------------------+   |   |   |
 |   |   |   |       NGINX REVERSE PROXY     |   |   |   |  Managed Relational DB    |   |   |   |
@@ -92,7 +92,7 @@ This document contains the complete step-by-step documentation for completing **
        3. **HTTPS (Port 443)**: Source: `0.0.0.0/0`.
    - **Storage**: `20 GiB` gp3.
 5. Click **Launch Instance**.
-6. Assigned Public IP: **`13.235.68.93`**.
+6. Assigned Public IP: **`3.110.108.245`**.
 
 ---
 
@@ -102,14 +102,14 @@ This document contains the complete step-by-step documentation for completing **
 ```bash
 cd ~/Downloads
 chmod 400 customer-report-key.pem
-ssh -i customer-report-key.pem ubuntu@13.235.68.93
+ssh -i customer-report-key.pem ubuntu@3.110.108.245
 ```
 
 #### Windows PowerShell
 ```powershell
 cd $HOME\Downloads
 icacls.exe customer-report-key.pem /inheritance:r /grant:r "$($env:username):(R)"
-ssh -i customer-report-key.pem ubuntu@13.235.68.93
+ssh -i customer-report-key.pem ubuntu@3.110.108.245
 ```
 
 #### EC2 Instance Connect (Directly in Browser)
@@ -209,9 +209,9 @@ pm2 save
 
 ### Step 3.6: Verification & Live Testing
 1. **Web Application**:
-   [http://13.235.68.93/login](http://13.235.68.93/login)
+   [http://3.110.108.245/login](http://3.110.108.245/login)
 2. **Health Check Endpoint**:
-   [http://13.235.68.93/api/health](http://13.235.68.93/api/health)
+   [http://3.110.108.245/api/health](http://3.110.108.245/api/health)
    ```json
    {
      "status": "OK",
@@ -333,6 +333,7 @@ SELECT name, email, status, "riskScore", "healthScore", ltv, mrr FROM customers;
 | :--- | :--- | :--- |
 | `aws/scripts/setup-ec2.sh` | Provisions Node 20, PostgreSQL tools, Nginx, PM2 & 2GB Swap | `./aws/scripts/setup-ec2.sh` |
 | `aws/scripts/deploy.sh` | Builds frontend, cleans Nginx, seeds RDS, launches PM2 | `./aws/scripts/deploy.sh` |
+| `aws/scripts/populate-data.js` | Appends new enterprise clients & reports to Amazon RDS | `node aws/scripts/populate-data.js` |
 | `aws/scripts/view-db.js` | Connects to RDS and outputs all table rows in terminal | `node aws/scripts/view-db.js` |
 | `aws/scripts/debug-fix.sh` | Automated Nginx reset, reverse proxy fix & diagnostic | `./aws/scripts/debug-fix.sh` |
 | `aws/scripts/backup-rds.sh` | Dumps Amazon RDS PostgreSQL & uploads snapshot to S3 | `./aws/scripts/backup-rds.sh` |
